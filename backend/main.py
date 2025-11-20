@@ -9,17 +9,13 @@ from utils.emotion_utils import predict_emotion
 
 app = FastAPI(title="Face Detection & Emotion Recognition API")
 
-# --- CORS (for frontend hosted separately) ---
+# --- CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # replace "*" with your frontend URL in production
+    allow_origins=["*"],  # Replace "*" with frontend URL in production
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# --- Serve the frontend (folder at same level as backend) ---
-FRONTEND_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
-app.mount("/", StaticFiles(directory=FRONTEND_PATH, html=True), name="frontend")
 
 # --- API endpoints ---
 ALLOWED_TASKS = {"detection", "emotion"}
@@ -30,32 +26,31 @@ class ImageRequest(BaseModel):
 
 @app.post("/process")
 def process_image(data: ImageRequest):
-    # Validate task
     if data.task not in ALLOWED_TASKS:
         raise HTTPException(status_code=400, detail="Invalid task")
-
-    # Decode base64 image
     img = decode_image(data.image)
     if img is None:
         raise HTTPException(status_code=400, detail="Invalid image")
-
-    # --- Face detection ---
     if data.task == "detection":
         boxes = detect_faces(img)
-        return {
-            "task": "detection",
-            "faces": boxes
-        }
-
-    # --- Emotion recognition ---
+        return {"task": "detection", "faces": boxes}
     if data.task == "emotion":
         emotion = predict_emotion(img)
-        return {
-            "task": "emotion",
-            "emotion": emotion
-        }
+        return {"task": "emotion", "emotion": emotion}
 
-# Optional health check
 @app.get("/health")
 def health():
     return {"status": "backend running"}
+
+# --- Serve frontend at /frontend --- (important: avoid conflict with API routes)
+FRONTEND_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
+if os.path.exists(FRONTEND_PATH):
+    app.mount("/frontend", StaticFiles(directory=FRONTEND_PATH, html=True), name="frontend")
+else:
+    print("Warning: frontend folder not found, skipping static mount")
+
+# --- Run via Uvicorn on Render ---
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
