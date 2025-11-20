@@ -56,12 +56,11 @@ def health():
 # --- Catch-all for frontend routes (avoids conflicts with API paths) ---
 @app.get("/{full_path:path}")
 async def catch_all(full_path: str):
-    # Protect API routes
     if full_path.startswith("process") or full_path.startswith("health"):
         raise HTTPException(status_code=404)
-
     index_path = os.path.join(FRONTEND_PATH, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     else:
         raise HTTPException(status_code=404, detail="Frontend not found")
+
