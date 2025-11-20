@@ -10,18 +10,18 @@ from utils.emotion_utils import predict_emotion
 
 app = FastAPI(title="Face Detection & Emotion Recognition API")
 
-# --- CORS (allow frontend from anywhere; adjust in production) ---
+# --- CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Adjust to frontend URL in production
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Serve frontend at root ---
+# --- Serve frontend assets ---
 FRONTEND_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
 if os.path.exists(FRONTEND_PATH):
-    app.mount("/", StaticFiles(directory=FRONTEND_PATH, html=True), name="frontend")
+    app.mount("/frontend", StaticFiles(directory=FRONTEND_PATH), name="frontend")
 else:
     print("Warning: frontend folder not found, skipping static mount")
 
@@ -53,14 +53,15 @@ def process_image(data: ImageRequest):
 def health():
     return {"status": "backend running"}
 
-# --- Catch-all for frontend routes (avoids conflicts with API paths) ---
+# --- Catch-all for frontend routing ---
 @app.get("/{full_path:path}")
-async def catch_all(full_path: str):
-    if full_path.startswith("process") or full_path.startswith("health"):
+async def serve_frontend(full_path: str):
+    # Skip API endpoints
+    if full_path.startswith("process") or full_path.startswith("health") or full_path.startswith("frontend"):
         raise HTTPException(status_code=404)
+    
     index_path = os.path.join(FRONTEND_PATH, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     else:
         raise HTTPException(status_code=404, detail="Frontend not found")
-
