@@ -18,9 +18,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Serve frontend from /frontend_path ---
+# --- Serve frontend at root ---
 FRONTEND_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
-app.mount("/static", StaticFiles(directory=FRONTEND_PATH), name="static")  # serve assets like CSS/JS
+if os.path.exists(FRONTEND_PATH):
+    app.mount("/", StaticFiles(directory=FRONTEND_PATH, html=True), name="frontend")
+else:
+    print("Warning: frontend folder not found, skipping static mount")
 
 # --- API endpoints ---
 ALLOWED_TASKS = {"detection", "emotion"}
@@ -50,11 +53,11 @@ def process_image(data: ImageRequest):
 def health():
     return {"status": "backend running"}
 
-# --- Catch-all route to serve index.html for frontend routing ---
+# --- Catch-all for frontend routes (avoids conflicts with API paths) ---
 @app.get("/{full_path:path}")
-async def serve_frontend(full_path: str, request: Request):
-    # Ensure API paths are not overridden
-    if full_path.startswith("process") or full_path.startswith("health") or full_path.startswith("static"):
+async def catch_all(full_path: str):
+    # Protect API routes
+    if full_path.startswith("process") or full_path.startswith("health"):
         raise HTTPException(status_code=404)
 
     index_path = os.path.join(FRONTEND_PATH, "index.html")
