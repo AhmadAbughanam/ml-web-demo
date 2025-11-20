@@ -12,6 +12,9 @@ const confidenceEl = document.getElementById("confidence");
 const processingTimeEl = document.getElementById("processingTime");
 const navItems = document.querySelectorAll(".nav-item");
 
+//API endpoint
+const API_URL = "/process";
+
 let capturedImage = null;
 let processingStartTime = 0;
 
@@ -108,7 +111,7 @@ async function sendToBackend(task, btn) {
   `;
 
   try {
-    const response = await fetch("/process", {
+    const response = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ image: capturedImage, task }),
