@@ -12,11 +12,13 @@ const confidenceEl = document.getElementById("confidence");
 const processingTimeEl = document.getElementById("processingTime");
 const navItems = document.querySelectorAll(".nav-item");
 
-//API endpoint
-const API_URL = "/process";
+// API endpoint - will use the same origin as the page
+const API_URL = `${window.location.origin}/process`;
 
 let capturedImage = null;
 let processingStartTime = 0;
+
+console.log("API URL:", API_URL);
 
 // Initialize webcam
 async function initCamera() {
@@ -26,9 +28,9 @@ async function initCamera() {
     });
     video.srcObject = stream;
     video.play();
-    console.log("Camera initialized successfully");
+    console.log("✓ Camera initialized successfully");
   } catch (err) {
-    console.error("Camera error:", err);
+    console.error("✗ Camera error:", err);
     alert("Unable to access camera. Please check permissions.");
   }
 }
@@ -88,7 +90,7 @@ captureBtn.addEventListener("click", () => {
     captureBtn.style.background = "";
   }, 2000);
 
-  console.log("Photo captured successfully");
+  console.log("✓ Photo captured successfully");
 });
 
 // Send image to backend
@@ -111,23 +113,42 @@ async function sendToBackend(task, btn) {
   `;
 
   try {
+    console.log(`Sending ${task} request to:`, API_URL);
+    
     const response = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: capturedImage, task }),
+      headers: { 
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify({ 
+        image: capturedImage, 
+        task: task 
+      }),
     });
 
     const processingTime = ((performance.now() - processingStartTime) / 1000).toFixed(2);
     processingTimeEl.textContent = `${processingTime}s`;
 
+    console.log("Response status:", response.status);
+
     if (!response.ok) {
-      const err = await response.json();
-      console.error("Backend error:", err);
-      alert("Error: " + (err.detail || "Unknown error occurred"));
+      let errorMessage = `Server error (${response.status})`;
+      try {
+        const err = await response.json();
+        errorMessage = err.detail || errorMessage;
+        console.error("Backend error:", err);
+      } catch (e) {
+        console.error("Could not parse error response");
+      }
+      alert("Error: " + errorMessage);
+      btn.innerHTML = originalHTML;
+      btn.disabled = false;
       return;
     }
 
     const data = await response.json();
+    console.log("Response data:", data);
 
     if (task === "detection") {
       displayFaces(data.faces);
@@ -148,7 +169,8 @@ async function sendToBackend(task, btn) {
       }, 2000);
       
     } else if (task === "emotion") {
-      emotionBadge.textContent = data.emotion;
+      const emotion = data.emotion === "no_face" ? "No face detected" : data.emotion;
+      emotionBadge.textContent = emotion;
       confidenceEl.textContent = data.confidence || "N/A";
       
       // Success feedback
@@ -167,13 +189,10 @@ async function sendToBackend(task, btn) {
 
   } catch (err) {
     console.error("Network error:", err);
-    alert("Connection error. Please check if the backend is running.");
+    alert("Connection error. Please check if the backend is running.\n\nError: " + err.message);
     processingTimeEl.textContent = "Error";
-  } finally {
-    if (btn.disabled) {
-      btn.disabled = false;
-      btn.innerHTML = originalHTML;
-    }
+    btn.innerHTML = originalHTML;
+    btn.disabled = false;
   }
 }
 
@@ -270,11 +289,11 @@ function displayFaces(faces) {
       ctx.fillText(`Face ${index + 1}`, x + 40, y - 15);
     });
 
-    console.log(`Rendered ${faces.length} face(s)`);
+    console.log(`✓ Rendered ${faces.length} face(s)`);
   };
 
   img.onerror = () => {
-    console.error("Failed to load captured image");
+    console.error("✗ Failed to load captured image");
     alert("Error displaying results");
   };
 }
@@ -284,4 +303,5 @@ detectBtn.addEventListener("click", () => sendToBackend("detection", detectBtn))
 emotionBtn.addEventListener("click", () => sendToBackend("emotion", emotionBtn));
 
 // Initialize
+console.log("Initializing application...");
 initCamera();
